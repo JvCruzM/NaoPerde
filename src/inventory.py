@@ -22,24 +22,35 @@ def init_storage():
         save_inventory([])
 
 
-def load_inventory():
 
+def load_inventory():
+    
     init_storage()
 
     try:
         with DATA_FILE.open("r", encoding="utf-8") as file:
             data = json.load(file)
 
-        if not isinstance(data, list):
-            raise ValueError("Formato inválido do estoque.")
+        if isinstance(data, list):
+            return data
 
-        return data
+        if isinstance(data, dict):
+            alimentos = data.get("alimentos")
+
+            if isinstance(alimentos, list):
+                return alimentos
+
+        raise ValueError(
+            "Formato invalido do estoque. "
+            "Esperada uma lista ou um objeto contendo 'alimentos'."
+        )
 
     except json.JSONDecodeError as error:
         raise ValueError(
-            "O arquivo de estoque está corrompido. "
-            "Os dados não foram alterados."
+            "O arquivo de estoque esta corrompido. "
+            "Os dados nao foram alterados."
         ) from error
+
 
 
 def save_inventory(inventory):

@@ -7,11 +7,13 @@ import os
 from datetime import date
 from typing import Any, Mapping, Sequence
 
+from dotenv import load_dotenv
 from groq import Groq, GroqError
 
 from .prompts import SYSTEM_PROMPT
 from .expiration import get_expiration_report
 
+load_dotenv()
 
 def _normalizar_estoque(
     estoque: Sequence[Mapping[str, Any]]
