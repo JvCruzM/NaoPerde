@@ -92,7 +92,6 @@ def suggest_recipes(inventory, limit=5):
         matched = ingredients.intersection(available)
         missing = ingredients.difference(available)
 
-        # Ignora receitas sem nenhum ingrediente disponivel.
         if not matched:
             continue
 
@@ -109,7 +108,6 @@ def suggest_recipes(inventory, limit=5):
             "instructions": recipe["instructions"]
         })
 
-    # Prioriza receitas com menos ingredientes faltantes.
     suggestions.sort(
         key=lambda recipe: (
             len(recipe["missing_ingredients"]),
