@@ -1,6 +1,4 @@
 
-"""Modulo de sugestao e consulta de receitas do NaoPerde."""
-
 import unicodedata
 
 
@@ -49,7 +47,6 @@ RECIPES = [
 
 
 def normalize_name(name):
-    """Padroniza nomes para facilitar a comparacao."""
 
     name = str(name).strip().lower()
 
@@ -63,34 +60,63 @@ def normalize_name(name):
     return name
 
 
-def suggest_recipes(inventory, limit=5):
-    """
-    Compara os alimentos do estoque com as receitas.
-
-    inventory: lista de produtos com o campo 'nome'.
-    limit: quantidade maxima de receitas retornadas.
-    """
-
-    if limit < 1:
-        raise ValueError("O limite deve ser maior que zero.")
+def compare_ingredients(required, inventory):
 
     available = {
-        normalize_name(item["nome"])
+        normalize_name(food["name"])
+        for food in inventory
+        if food.get("name")
+        and food.get("status") == "disponivel"
+    }
+
+    found = []
+    missing = []
+
+    for ingredient in required:
+
+        if normalize_name(ingredient) in available:
+            found.append(ingredient)
+        else:
+            missing.append(ingredient)
+
+    return {
+        "available": found,
+        "missing": missing
+    }
+
+
+def suggest_recipes(inventory, limit=5):
+
+    if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
+        raise ValueError("O limite deve ser um numero inteiro maior que zero.")
+
+    if not isinstance(inventory, (list, tuple)):
+        raise ValueError("O estoque deve ser uma lista de produtos.")
+
+    available = {
+        normalize_name(item["name"])
         for item in inventory
-        if item.get("nome")
+        if item.get("name")
+        and item.get("status") == "disponivel"
     }
 
     suggestions = []
 
     for recipe in RECIPES:
 
-        ingredients = {
-            normalize_name(item)
-            for item in recipe["ingredients"]
-        }
+        ingredients = recipe["ingredients"]
 
-        matched = ingredients.intersection(available)
-        missing = ingredients.difference(available)
+        matched = [
+            ingredient
+            for ingredient in ingredients
+            if normalize_name(ingredient) in available
+        ]
+
+        missing = [
+            ingredient
+            for ingredient in ingredients
+            if normalize_name(ingredient) not in available
+        ]
 
         if not matched:
             continue
@@ -101,17 +127,17 @@ def suggest_recipes(inventory, limit=5):
 
         suggestions.append({
             "name": recipe["name"],
-            "ingredients": recipe["ingredients"],
-            "available_ingredients": sorted(matched),
-            "missing_ingredients": sorted(missing),
+            "ingredients": ingredients.copy(),
+            "available_ingredients": matched,
+            "missing_ingredients": missing,
             "match_percentage": round(percentage, 2),
-            "instructions": recipe["instructions"]
+            "instructions": recipe["instructions"].copy()
         })
 
     suggestions.sort(
         key=lambda recipe: (
-            len(recipe["missing_ingredients"]),
-            -recipe["match_percentage"]
+            -recipe["match_percentage"],
+            len(recipe["missing_ingredients"])
         )
     )
 
@@ -119,13 +145,17 @@ def suggest_recipes(inventory, limit=5):
 
 
 def get_recipe_details(recipe_name):
-    """Busca os detalhes de uma receita pelo nome."""
 
     normalized_search = normalize_name(recipe_name)
 
     for recipe in RECIPES:
 
         if normalize_name(recipe["name"]) == normalized_search:
-            return recipe.copy()
+
+            return {
+                "name": recipe["name"],
+                "ingredients": recipe["ingredients"].copy(),
+                "instructions": recipe["instructions"].copy()
+            }
 
     return None
