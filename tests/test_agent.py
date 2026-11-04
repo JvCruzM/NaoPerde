@@ -13,9 +13,10 @@ def sample_food():
 
 
 def test_agent_requires_api_key(monkeypatch):
+    monkeypatch.setattr("src.agent.load_dotenv", lambda: None)
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     with pytest.raises(ValueError, match="GROQ_API_KEY"):
-        NaoPerdeAgent(api_key=None)
+        NaoPerdeAgent()
 
 
 def test_normalize_stock_uses_canonical_schema():
