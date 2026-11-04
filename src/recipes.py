@@ -47,115 +47,69 @@ RECIPES = [
 
 
 def normalize_name(name):
-
-    name = str(name).strip().lower()
-
-    name = unicodedata.normalize("NFD", name)
-
-    name = "".join(
-        char for char in name
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("O nome do ingrediente deve ser um texto nao vazio.")
+    normalized = unicodedata.normalize("NFD", name.strip().casefold())
+    return "".join(
+        char for char in normalized
         if unicodedata.category(char) != "Mn"
     )
 
-    return name
+
+def _available_names(inventory):
+    if not isinstance(inventory, (list, tuple)):
+        raise ValueError("O estoque deve ser uma lista de produtos.")
+    available = set()
+    for item in inventory:
+        if not isinstance(item, dict):
+            raise ValueError("O estoque contem um alimento invalido.")
+        if item.get("status") == "disponivel" and item.get("name"):
+            available.add(normalize_name(item["name"]))
+    return available
 
 
 def compare_ingredients(required, inventory):
-
-    available = {
-        normalize_name(food["name"])
-        for food in inventory
-        if food.get("name")
-        and food.get("status") == "disponivel"
-    }
-
-    found = []
-    missing = []
-
+    if not isinstance(required, (list, tuple)):
+        raise ValueError("Os ingredientes necessarios devem estar em uma lista.")
+    available_names = _available_names(inventory)
+    found, missing = [], []
     for ingredient in required:
-
-        if normalize_name(ingredient) in available:
-            found.append(ingredient)
-        else:
-            missing.append(ingredient)
-
-    return {
-        "available": found,
-        "missing": missing
-    }
+        normalized = normalize_name(ingredient)
+        (found if normalized in available_names else missing).append(ingredient)
+    return {"available": found, "missing": missing}
 
 
 def suggest_recipes(inventory, limit=5):
-
     if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
         raise ValueError("O limite deve ser um numero inteiro maior que zero.")
-
-    if not isinstance(inventory, (list, tuple)):
-        raise ValueError("O estoque deve ser uma lista de produtos.")
-
-    available = {
-        normalize_name(item["name"])
-        for item in inventory
-        if item.get("name")
-        and item.get("status") == "disponivel"
-    }
-
+    available = _available_names(inventory)
     suggestions = []
-
     for recipe in RECIPES:
-
         ingredients = recipe["ingredients"]
-
-        matched = [
-            ingredient
-            for ingredient in ingredients
-            if normalize_name(ingredient) in available
-        ]
-
-        missing = [
-            ingredient
-            for ingredient in ingredients
-            if normalize_name(ingredient) not in available
-        ]
-
+        matched = [item for item in ingredients if normalize_name(item) in available]
+        missing = [item for item in ingredients if normalize_name(item) not in available]
         if not matched:
             continue
-
-        percentage = (
-            len(matched) / len(ingredients)
-        ) * 100
-
         suggestions.append({
             "name": recipe["name"],
             "ingredients": ingredients.copy(),
             "available_ingredients": matched,
             "missing_ingredients": missing,
-            "match_percentage": round(percentage, 2),
-            "instructions": recipe["instructions"].copy()
+            "match_percentage": round(len(matched) / len(ingredients) * 100, 2),
+            "instructions": recipe["instructions"].copy(),
+            "quantity_checked": False
         })
-
-    suggestions.sort(
-        key=lambda recipe: (
-            -recipe["match_percentage"],
-            len(recipe["missing_ingredients"])
-        )
-    )
-
+    suggestions.sort(key=lambda item: (-item["match_percentage"], len(item["missing_ingredients"])))
     return suggestions[:limit]
 
 
 def get_recipe_details(recipe_name):
-
-    normalized_search = normalize_name(recipe_name)
-
+    normalized = normalize_name(recipe_name)
     for recipe in RECIPES:
-
-        if normalize_name(recipe["name"]) == normalized_search:
-
+        if normalize_name(recipe["name"]) == normalized:
             return {
                 "name": recipe["name"],
                 "ingredients": recipe["ingredients"].copy(),
                 "instructions": recipe["instructions"].copy()
             }
-
     return None
